@@ -9,12 +9,13 @@ import json
 import numpy as np
 import os, time
 
+rpyc.core.protocol.DEFAULT_CONFIG['allow_pickle'] = True
+
 # A ResNet-18 server that classify MNIST images
 
 preprocess = transforms.Compose([
     transforms.Resize(256),
     transforms.CenterCrop(224),
-    transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
@@ -35,6 +36,9 @@ class ResNetService(rpyc.Service):
 
     def exposed_predict(self, img_tensor):
         with torch.no_grad():
+            img_tensor = np.array(img_tensor)
+            img_tensor = torch.tensor(img_tensor)
+            img_tensor = preprocess(img_tensor)
             img_tensor = img_tensor.to("cuda")
             outputs = self.model(img_tensor)
             _, predicted = torch.max(outputs, 1)
@@ -42,5 +46,5 @@ class ResNetService(rpyc.Service):
         
 
 if __name__ == "__main__":
-    t = ThreadedServer(ResNetService, port = 18861)
+    t = ThreadedServer(ResNetService, port = 18861, protocol_config=rpyc.core.protocol.DEFAULT_CONFIG)
     t.start()
